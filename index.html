@@ -182,6 +182,7 @@
           // 显示用户信息
           window.history.replaceState({}, '', window.location.pathname);
           displayUserInfo(user, email, token);
+          showLoading(false);
           
           // 将 token 传递给桌面端
           onTokenReceived(token);
@@ -225,6 +226,7 @@
           // 显示用户信息
           window.history.replaceState({}, '', window.location.pathname);
           displayUserInfo(user, email, token);
+          showLoading(false);
           
           // 将 token 传递给桌面端
           onTokenReceived(token);
@@ -237,14 +239,23 @@
     }
 
     window.displayUserInfo = function(user, email, token) {
-      document.getElementById('login-section').style.display = 'none';
-      document.getElementById('user-info').style.display = 'block';
-      document.getElementById('user-avatar').src = user.avatar_url;
-      document.getElementById('username').textContent = user.login;
-      document.getElementById('name').textContent = user.name || '未设置';
-      document.getElementById('email').textContent = email;
-      document.getElementById('public-repos').textContent = user.public_repos;
-      document.getElementById('token-value').textContent = token;
+      const loginSectionEl = document.getElementById('login-section');
+      const userInfoEl = document.getElementById('user-info');
+      const userAvatarEl = document.getElementById('user-avatar');
+      const usernameEl = document.getElementById('username');
+      const nameEl = document.getElementById('name');
+      const emailEl = document.getElementById('email');
+      const publicReposEl = document.getElementById('public-repos');
+      const tokenValueEl = document.getElementById('token-value');
+      
+      if (loginSectionEl) loginSectionEl.style.display = 'none';
+      if (userInfoEl) userInfoEl.style.display = 'block';
+      if (userAvatarEl) userAvatarEl.src = user.avatar_url;
+      if (usernameEl) usernameEl.textContent = user.login;
+      if (nameEl) nameEl.textContent = user.name || '未设置';
+      if (emailEl) emailEl.textContent = email;
+      if (publicReposEl) publicReposEl.textContent = user.public_repos;
+      if (tokenValueEl) tokenValueEl.textContent = token;
     };
 
     function copyToken() {
