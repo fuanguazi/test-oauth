@@ -58,22 +58,18 @@
     <div class="content">
       <div class="error" id="error-message"></div>
 
-      <div class="config-section">
+      <div class="config-section" style="display:none;">
         <div class="config-title">应用配置</div>
-        <input type="text" id="client-id" class="config-input" placeholder="输入 GitHub Client ID" value="">
+        <input type="text" id="client-id" class="config-input" value="Ov23liShK8kmAipWUYCw"> <!-- 内置 Client ID -->
         <div class="config-help">
           回调地址: <code id="callback-url"></code><br>
-          <small>后端: <code>https://02oauth-backend.netlify.app/.netlify/functions/token</code></small>
+          <small>后端: <code>https://02engine-desktop-oauth-backend.netlify.app/</code></small>
         </div>
       </div>
 
-      <div class="login-section" id="login-section">
-        <button class="login-btn" onclick="startOAuth()">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
-            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-          </svg>
-          使用 GitHub 登录
-        </button>
+      <div class="loading" id="auto-start-message" style="display:block; text-align:center; padding:20px;">
+        <div class="spinner"></div>
+        <p style="margin-top: 15px; color: #666;">正在启动 GitHub 认证...</p>
       </div>
 
       <div class="loading" id="loading">
@@ -105,7 +101,7 @@
 
   <script>
     // 正确后端地址
-    const BACKEND_URL = 'https://02oauth-backend.netlify.app/.netlify/functions/token';
+    const BACKEND_URL = 'https://02engine-desktop-oauth-backend.netlify.app/';
     const REDIRECT_URI = window.location.origin + window.location.pathname;
     document.getElementById('callback-url').textContent = REDIRECT_URI;
 
@@ -125,7 +121,8 @@
     }
 
     async function startOAuth() {
-      const clientId = document.getElementById('client-id').value.trim();
+      // 使用内置的 Client ID，而不是从输入框获取
+      const clientId = 'Ov23liiGiIBKpOFbx68G'; // 内置的 Client ID
       if (!clientId) return showError('请输入 Client ID');
 
       try {
@@ -252,6 +249,15 @@
       const email = localStorage.getItem('github_email');
       if (token && user) displayUserInfo(JSON.parse(user), email, token);
       handleCallback();
+      
+      // 检查是否在回调流程中，如果不是，则自动启动 OAuth
+      const params = new URLSearchParams(window.location.search);
+      if (!params.has('code')) {
+        // 没有授权码，说明不是回调，自动开始 OAuth
+        setTimeout(() => {
+          startOAuth();
+        }, 1000); // 稍微延迟一下，让用户看到正在启动的消息
+      }
     });
 
     // 检测是否在桌面环境中并传递token
