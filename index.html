@@ -188,7 +188,7 @@
           onTokenReceived(token);
         } else {
           // 在浏览器环境中，直接与后端通信（可能遇到 CORS 问题）
-          const res = await fetch('https://02engine-desktop-oauth-backend.netlify.app/.netlify/functions/token', {
+          const res = await fetch(BACKEND_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
