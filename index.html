@@ -101,7 +101,7 @@
 
   <script>
     // 正确后端地址
-    const BACKEND_URL = 'https://02engine-desktop-oauth-backend.netlify.app/';
+    const BACKEND_URL = 'https://02engine-desktop-oauth-backend.netlify.app/.netlify/functions/token';
     const REDIRECT_URI = window.location.origin + window.location.pathname;
     document.getElementById('callback-url').textContent = REDIRECT_URI;
 
@@ -161,46 +161,77 @@
       }
 
       try {
-        const res = await fetch(BACKEND_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+        // 检查是否在桌面环境中
+        if (window.EditorPreload && typeof window.EditorPreload.exchangeOAuthCode === 'function') {
+          // 在桌面环境中，通过桌面应用与后端通信
+          const result = await window.EditorPreload.exchangeOAuthCode({
             code: code,
             code_verifier: codeVerifier,
             client_id: clientId,
-            redirect_uri: REDIRECT_URI  // 必须传！
-          })
-        });
+            redirect_uri: REDIRECT_URI
+          });
+          const token = result.token;
+          const user = result.user;
+          const email = result.email;
+          
+          // 保存到 localStorage 供桌面应用读取
+          localStorage.setItem('github_token', token);
+          localStorage.setItem('github_user', JSON.stringify(user));
+          localStorage.setItem('github_email', email);
 
-        const data = await res.json();
-        if (data.error) throw new Error(data.error_description || data.error);
+          // 显示用户信息
+          window.history.replaceState({}, '', window.location.pathname);
+          displayUserInfo(user, email, token);
+          
+          // 将 token 传递给桌面端
+          onTokenReceived(token);
+        } else {
+          // 在浏览器环境中，直接与后端通信（可能遇到 CORS 问题）
+          const res = await fetch('https://02engine-desktop-oauth-backend.netlify.app/.netlify/functions/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              code: code,
+              code_verifier: codeVerifier,
+              client_id: clientId,
+              redirect_uri: REDIRECT_URI  // 必须传！
+            })
+          });
 
-        const token = data.access_token;
+          const data = await res.json();
+          if (data.error) throw new Error(data.error_description || data.error);
 
-        const userRes = await fetch('https://api.github.com/user', {
-          headers: { Authorization: `token ${token}`, 'User-Agent': 'OAuth-App' }
-        });
-        const user = await userRes.json();
+          const token = data.access_token;
 
-        let email = user.email;
-        if (!email) {
-          const emailRes = await fetch('https://api.github.com/user/emails', {
+          const userRes = await fetch('https://api.github.com/user', {
             headers: { Authorization: `token ${token}`, 'User-Agent': 'OAuth-App' }
           });
-          const emails = await emailRes.json();
-          email = emails.find(e => e.primary)?.email || '未公开';
+          const user = await userRes.json();
+
+          let email = user.email;
+          if (!email) {
+            const emailRes = await fetch('https://api.github.com/user/emails', {
+              headers: { Authorization: `token ${token}`, 'User-Agent': 'OAuth-App' }
+            });
+            const emails = await emailRes.json();
+            email = emails.find(e => e.primary)?.email || '未公开';
+          }
+
+          // 保存到 localStorage 供桌面应用读取
+          localStorage.setItem('github_token', token);
+          localStorage.setItem('github_user', JSON.stringify(user));
+          localStorage.setItem('github_email', email);
+
+          // 显示用户信息
+          window.history.replaceState({}, '', window.location.pathname);
+          displayUserInfo(user, email, token);
+          
+          // 将 token 传递给桌面端
+          onTokenReceived(token);
         }
-
-        localStorage.setItem('github_token', token);
-        localStorage.setItem('github_user', JSON.stringify(user));
-        localStorage.setItem('github_email', email);
-
-        window.history.replaceState({}, '', window.location.pathname);
-        displayUserInfo(user, email, token);
 
       } catch (e) {
         showError('认证失败: ' + e.message);
-      } finally {
         showLoading(false);
       }
     }
