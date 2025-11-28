@@ -1,4 +1,27 @@
 exports.handler = async (event, context) => {
+  // 处理CORS预检请求
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+      }
+    };
+  }
+
+  // 只允许GET请求
+  if (event.httpMethod !== 'GET') {
+    return {
+      statusCode: 405,
+      body: JSON.stringify({ error: '只支持GET请求' }),
+      headers: {
+        'Access-Control-Allow-Origin': '*'
+      }
+    };
+  }
+
   const path = event.path;
   
   // 从URL路径中提取hash (如 /temp-token/abc123_timestamp)
