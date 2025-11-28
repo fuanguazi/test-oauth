@@ -100,10 +100,89 @@
   </div>
 
   <script>
+    // 生成OAuth哈希（与桌面端使用相同算法）
+    function generateOAuthHash() {
+      const timestamp = getCurrentTimestamp();
+      const deviceInfo = getDeviceInfo();
+      const data = `${deviceInfo}_${timestamp}`;
+      
+      // 使用Web Crypto API进行SHA256哈希
+      const encoder = new TextEncoder();
+      const dataBuffer = encoder.encode(data);
+      return window.crypto.subtle.digest('SHA-256', dataBuffer).then(hashBuffer => {
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        return `${hashHex}_${timestamp}`;
+      });
+    }
+
+    // 获取设备信息（与桌面端兼容）
+    function getDeviceInfo() {
+      const platform = getPlatform();
+      const arch = getArchitecture();
+      const timezone = getTimezone();
+      return `plat_${platform}_arch_${arch}_tz_${timezone}`.replace(/[^a-zA-Z0-9]/g, '');
+    }
+
+    // 获取平台信息
+    function getPlatform() {
+      const userAgent = navigator.userAgent.toLowerCase();
+      if (userAgent.includes('win')) return 'win32';
+      if (userAgent.includes('mac')) return 'darwin';
+      if (userAgent.includes('linux')) return 'linux';
+      return 'unknown';
+    }
+
+    // 获取架构信息
+    function getArchitecture() {
+      const userAgent = navigator.userAgent;
+      if (userAgent.includes('x86_64') || userAgent.includes('amd64')) return 'x64';
+      if (userAgent.includes('arm64') || userAgent.includes('aarch64')) return 'arm64';
+      return 'unknown';
+    }
+
+    // 获取时区信息
+    function getTimezone() {
+      const offset = new Date().getTimezoneOffset();
+      return `tz_${offset}`.replace(/[^a-zA-Z0-9]/g, '').substring(0, 10);
+    }
+
+    // 获取当前时间戳（分钟级精度）
+    function getCurrentTimestamp() {
+      const now = Date.now();
+      return Math.floor(now / (1000 * 60)) * 60 * 1000;
+    }
+
+    // 获取URL参数中的哈希或生成新的哈希
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlHash = urlParams.get('hash');
+    
     // 正确后端地址
     const BACKEND_URL = 'https://02engine-desktop-oauth-backend.netlify.app/.netlify/functions/token';
     const REDIRECT_URI = window.location.origin + window.location.pathname;
     document.getElementById('callback-url').textContent = REDIRECT_URI;
+    
+    // 使用固定hash（不动态变化）
+    let oauthHash = urlHash;
+    
+    // 如果没有URL hash，生成固定hash
+    if (!oauthHash) {
+      // 使用页面加载时的固定时间戳
+      const initTime = Math.floor(Date.now() / (1000 * 60)) * 60 * 1000;
+      const deviceInfo = getDeviceInfo();
+      const data = `${deviceInfo}_${initTime}`;
+      
+      // 生成简单hash
+      let hash = '';
+      for (let i = 0; i < data.length; i++) {
+        const char = data.charCodeAt(i);
+        hash = ((hash << 5) - hash + char).toString(16);
+      }
+      
+      oauthHash = `${hash}_${initTime}`;
+    }
+    
+    console.log('使用固定的OAuth Hash:', oauthHash);
 
     function generateRandomString(length) {
       const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
@@ -122,7 +201,7 @@
 
     async function startOAuth() {
       // 使用内置的 Client ID，而不是从输入框获取
-      const clientId = 'Ov23liiGiIBKpOFbx68G'; // 内置的 Client ID，与项目配置一致
+      const clientId = 'Ov23liShK8kmAipWUYCw'; // 内置的 Client ID，与项目配置一致
       if (!clientId) return showError('请输入 Client ID');
 
       try {
@@ -300,6 +379,8 @@
     }
 
     window.addEventListener('DOMContentLoaded', () => {
+      console.log('OAuth页面加载，Hash:', oauthHash);
+      
       const token = localStorage.getItem('github_token');
       const user = localStorage.getItem('github_user');
       const email = localStorage.getItem('github_email');
@@ -313,54 +394,75 @@
         setTimeout(() => {
           startOAuth();
         }, 1000); // 稍微延迟一下，让用户看到正在启动的消息
+      } else {
+        console.log('正在处理OAuth回调...');
       }
-      
-      // 自动连接桌面端WebSocket服务器（固定端口）
-      console.log('检测到桌面端WebSocket服务器，端口: 49153');
-      connectToDesktopWebSocket(49153);
     });
 
-    // 连接桌面端WebSocket服务器
-    function connectToDesktopWebSocket(port) {
-      try {
-        const ws = new WebSocket(`ws://localhost:${port}`);
-        
-        ws.onopen = () => {
-          console.log('已连接到桌面端WebSocket服务器');
-        };
-        
-        ws.onerror = (error) => {
-          console.error('WebSocket连接失败:', error);
-        };
-        
-        ws.onclose = () => {
-          console.log('WebSocket连接已关闭');
-        };
-        
-        // 将WebSocket连接保存到全局变量
-        window.oauthWebSocket = ws;
-        
-      } catch (error) {
-        console.error('创建WebSocket连接失败:', error);
-      }
-    }
-
-    // 通过WebSocket发送token到桌面端
-    function sendTokenToDesktop(token) {
-      if (window.oauthWebSocket && window.oauthWebSocket.readyState === WebSocket.OPEN) {
-        window.oauthWebSocket.send(JSON.stringify({
-          type: 'oauth_token',
-          token: token
-        }));
-        console.log('Token已通过WebSocket发送到桌面端');
-      } else {
-        console.warn('WebSocket连接未就绪，无法发送token');
-      }
-    }
+    // OAuth流程现在使用localStorage，不需要直接HTTP通信
 
     // 在获取到token后调用这个函数
-    function onTokenReceived(token) {
-      sendTokenToDesktop(token);
+    async function onTokenReceived(token) {
+      try {
+        // 将token存储到localStorage
+        const storageKey = `oauth_token_${oauthHash}`;
+        localStorage.setItem(storageKey, token);
+        
+        // 同时存储用户信息
+        const userInfo = {
+          token: token,
+          timestamp: Date.now()
+        };
+        localStorage.setItem(`oauth_user_${oauthHash}`, JSON.stringify(userInfo));
+        
+        console.log('Token已存储到localStorage:', storageKey);
+        
+        // 向云端API发送token用于临时路由访问
+        await sendTokenToCloud(oauthHash, token);
+        
+        // 稍后关闭窗口
+        setTimeout(() => {
+          window.close();
+        }, 1500);
+      } catch (error) {
+        console.error('处理token失败:', error);
+        
+        // 备用方案：使用简单的时间戳
+        const backupKey = `oauth_token_backup_${oauthHash}`;
+        localStorage.setItem(backupKey, token);
+        console.log('使用备用key存储token:', backupKey);
+        
+        setTimeout(() => {
+          window.close();
+        }, 1500);
+      }
+    }
+
+    // 向云端发送token用于临时路由
+    async function sendTokenToCloud(hash, token) {
+      try {
+        const response = await fetch('/store-token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            hash: hash,
+            token: token
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          console.log('Token已发送到云端，临时路由:', `/temp-token/${hash}`);
+          console.log('桌面端可以通过访问该URL获取token');
+        } else {
+          console.error('发送token到云端失败:', result.error);
+        }
+      } catch (error) {
+        console.error('发送token到云端出错:', error);
+      }
     }
 
     // 检查桌面环境并自动关闭窗口
@@ -380,13 +482,6 @@
       onTokenReceived(token);
       checkDesktopAndClose();
     };
-
-    // 页面关闭时清理WebSocket连接
-    window.addEventListener('beforeunload', () => {
-      if (window.oauthWebSocket) {
-        window.oauthWebSocket.close();
-      }
-    });
   </script>
 </body>
 </html>
