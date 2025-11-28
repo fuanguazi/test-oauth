@@ -167,13 +167,10 @@
     
     // 如果没有URL hash，生成固定hash
     if (!oauthHash) {
-      console.log('🔧 [OAuth-Between] 没有URL hash，开始生成');
       // 使用页面加载时的固定时间戳
       const initTime = Math.floor(Date.now() / (1000 * 60)) * 60 * 1000;
       const deviceInfo = getDeviceInfo();
       const data = `${deviceInfo}_${initTime}`;
-      
-      console.log(`📊 [OAuth-Between] 生成参数: deviceInfo=${deviceInfo}, timestamp=${initTime}, data=${data}`);
       
       // 使用与桌面端相同的哈希算法
       const encoder = new TextEncoder();
@@ -182,24 +179,19 @@
         const hashArray = Array.from(new Uint8Array(hashBuffer));
         const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
         oauthHash = `${hashHex}_${initTime}`;
-        console.log(`✅ [OAuth-Between] 生成兼容的OAuth Hash: ${oauthHash}`);
       }).catch(err => {
-        console.error(`❌ [OAuth-Between] SHA-256计算失败:`, err);
+        console.error('SHA-256计算失败:', err);
       });
       
       // 如果没有异步生成，则使用默认hash
       setTimeout(() => {
         if (!oauthHash) {
-          console.log('🔄 [OAuth-Between] 使用备用哈希生成方法');
           const defaultData = `plat_${getPlatform()}_arch_${getArchitecture()}_tz_${getTimezone()}_${initTime}`.replace(/[^a-zA-Z0-9]/g, '').substring(0, 10);
           const defaultHash = btoa(defaultData).replace(/[^a-zA-Z0-9]/g, '').substring(0, 32);
           oauthHash = `${defaultHash}_${initTime}`;
-          console.log(`🔧 [OAuth-Between] 使用默认OAuth Hash: ${oauthHash}`);
         }
       }, 100);
     }
-    
-    console.log(`🎯 [OAuth-Between] 使用固定的OAuth Hash: ${oauthHash}`);
 
     function generateRandomString(length) {
       const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
@@ -335,6 +327,8 @@
     }
 
     window.displayUserInfo = function(user, email, token) {
+      console.log(`显示用户信息: ${user.login}, token长度: ${token.length}`);
+      
       const loginSectionEl = document.getElementById('login-section');
       const userInfoEl = document.getElementById('user-info');
       const userAvatarEl = document.getElementById('user-avatar');
@@ -396,33 +390,25 @@
     }
 
     window.addEventListener('DOMContentLoaded', () => {
-      console.log(`🚀 [OAuth-Between] 页面加载完成，时间: ${new Date().toLocaleString()}`);
-      console.log(`🔗 [OAuth-Between] 当前URL: ${window.location.href}`);
-      console.log(`🔑 [OAuth-Between] OAuth Hash: ${oauthHash}`);
-      console.log(`💻 [OAuth-Between] 用户代理: ${navigator.userAgent}`);
-      console.log(`🌍 [OAuth-Between] 当前位置: ${window.location.origin}`);
+      console.log(`OAuth页面加载完成: ${oauthHash}`);
       
       const token = localStorage.getItem('github_token');
       const user = localStorage.getItem('github_user');
       const email = localStorage.getItem('github_email');
-      console.log(`💾 [OAuth-Between] localStorage状态: token=${!!token}, user=${!!user}, email=${!!email}`);
       
       if (token && user) displayUserInfo(JSON.parse(user), email, token);
       handleCallback();
       
       // 检查是否在回调流程中，如果不是，则自动启动 OAuth
       const params = new URLSearchParams(window.location.search);
-      console.log(`🔄 [OAuth-Between] URL参数: ${params.toString()}`);
-      console.log(`📝 [OAuth-Between] 是否包含code: ${params.has('code')}`);
       
       if (!params.has('code')) {
         // 没有授权码，说明不是回调，自动开始 OAuth
-        console.log('🔄 [OAuth-Between] 准备启动OAuth流程...');
         setTimeout(() => {
           startOAuth();
         }, 1000); // 稍微延迟一下，让用户看到正在启动的消息
       } else {
-        console.log('🔄 [OAuth-Between] 正在处理OAuth回调...');
+        console.log('正在处理OAuth回调...');
       }
     });
 
@@ -468,11 +454,11 @@
     // 向云端发送token用于临时路由
     async function sendTokenToCloud(hash, token) {
       try {
-        console.log(`🌐 [OAuth-Between] 准备发送token到云端，hash=${hash.substring(0, 20)}...`);
-        console.log(`🔐 [OAuth-Between] Token长度: ${token.length}`);
+        console.log(`发送token到云端: ${hash.substring(0, 20)}...`);
         
-        const backendUrl = 'https://02engine-desktop-oauth-backend.netlify.app/.netlify/functions/store-token';
-        console.log(`📡 [OAuth-Between] 发送请求到: ${backendUrl}`);
+        // 使用相对路径，通过Netlify函数访问
+        const backendUrl = '/.netlify/functions/store-token';
+        console.log(`发送请求到: ${backendUrl}`);
         
         const response = await fetch(backendUrl, {
           method: 'POST',
@@ -485,31 +471,20 @@
           })
         });
         
-        console.log(`📊 [OAuth-Between] 服务器响应状态: ${response.status} ${response.statusText}`);
-        
         if (!response.ok) {
-          console.error(`❌ [OAuth-Between] 服务器错误: ${response.status} ${response.statusText}`);
+          console.error(`服务器错误: ${response.status} ${response.statusText}`);
           return;
         }
         
         const result = await response.json();
-        console.log(`📋 [OAuth-Between] 服务器响应内容:`, result);
         
         if (result.success) {
-          console.log(`✅ [OAuth-Between] Token已成功发送到云端`);
-          console.log(`🔗 [OAuth-Between] 临时路由: /temp-token/${hash}`);
-          console.log(`💻 [OAuth-Between] 桌面端可以通过访问该URL获取token`);
+          console.log(`Token已成功发送到云端`);
         } else {
-          console.error(`❌ [OAuth-Between] 发送token到云端失败:`, result.error);
+          console.error(`发送token到云端失败:`, result.error);
         }
       } catch (error) {
-        console.error(`❌ [OAuth-Between] 发送token到云端出错:`, error.message);
-        console.error(`📊 [OAuth-Between] 错误详情:`, error);
-        
-        // 检查是否是CORS问题
-        if (error.message.includes('CORS') || error.message.includes('NetworkError')) {
-          console.log(`🔄 [OAuth-Between] 检测到CORS或网络错误，请检查后端配置`);
-        }
+        console.error(`发送token到云端出错:`, error.message);
       }
     }
 
