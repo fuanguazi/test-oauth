@@ -315,12 +315,9 @@
         }, 1000); // 稍微延迟一下，让用户看到正在启动的消息
       }
       
-      // 检查是否从桌面端打开并获取WebSocket端口
-      const wsPort = params.get('wsPort');
-      if (wsPort) {
-        console.log('检测到桌面端WebSocket服务器，端口:', wsPort);
-        connectToDesktopWebSocket(wsPort);
-      }
+      // 自动连接桌面端WebSocket服务器（固定端口）
+      console.log('检测到桌面端WebSocket服务器，端口: 49153');
+      connectToDesktopWebSocket(49153);
     });
 
     // 连接桌面端WebSocket服务器
@@ -393,4 +390,3 @@
   </script>
 </body>
 </html>
-
