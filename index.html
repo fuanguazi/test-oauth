@@ -165,21 +165,32 @@
     // 使用固定hash（不动态变化）
     let oauthHash = urlHash;
     
-    // 如果没有URL hash，生成固定hash
+    // 如果没有URL hash，生成与桌面端兼容的hash
     if (!oauthHash) {
       // 使用页面加载时的固定时间戳
       const initTime = Math.floor(Date.now() / (1000 * 60)) * 60 * 1000;
       const deviceInfo = getDeviceInfo();
       const data = `${deviceInfo}_${initTime}`;
       
-      // 生成简单hash
-      let hash = '';
-      for (let i = 0; i < data.length; i++) {
-        const char = data.charCodeAt(i);
-        hash = ((hash << 5) - hash + char).toString(16);
-      }
+      // 使用与桌面端相同的哈希算法
+      const encoder = new TextEncoder();
+      const dataBuffer = encoder.encode(data);
+      window.crypto.subtle.digest('SHA-256', dataBuffer).then(hashBuffer => {
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        oauthHash = `${hashHex}_${initTime}`;
+        console.log('生成兼容的OAuth Hash:', oauthHash);
+      });
       
-      oauthHash = `${hash}_${initTime}`;
+      // 如果没有异步生成，则使用默认hash
+      setTimeout(() => {
+        if (!oauthHash) {
+          const defaultData = `plat_${getPlatform()}_arch_${getArchitecture()}_tz_${getTimezone()}_${initTime}`.replace(/[^a-zA-Z0-9]/g, '').substring(0, 10);
+          const defaultHash = btoa(defaultData).replace(/[^a-zA-Z0-9]/g, '').substring(0, 32);
+          oauthHash = `${defaultHash}_${initTime}`;
+          console.log('使用默认OAuth Hash:', oauthHash);
+        }
+      }, 100);
     }
     
     console.log('使用固定的OAuth Hash:', oauthHash);
@@ -441,7 +452,8 @@
     // 向云端发送token用于临时路由
     async function sendTokenToCloud(hash, token) {
       try {
-        const response = await fetch('/store-token', {
+        const backendUrl = 'https://02engine-desktop-oauth-backend.netlify.app/.netlify/functions/store-token';
+        const response = await fetch(backendUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -485,4 +497,3 @@
   </script>
 </body>
 </html>
-
