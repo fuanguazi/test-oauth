@@ -1,8 +1,23 @@
 exports.handler = async (event, context) => {
+  // 处理CORS预检请求
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+      }
+    };
+  }
+
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
-      body: JSON.stringify({ error: '只支持POST请求' })
+      body: JSON.stringify({ error: '只支持POST请求' }),
+      headers: {
+        'Access-Control-Allow-Origin': '*'
+      }
     };
   }
 
